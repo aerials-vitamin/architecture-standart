@@ -79,6 +79,7 @@ env.bak/
 venv.bak/
 .secrets*
 *.conf.yml
+*.bkp
 
 # Jupyter Notebook
 .ipynb_checkpoints
