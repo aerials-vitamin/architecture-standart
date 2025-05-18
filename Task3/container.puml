@@ -1,0 +1,72 @@
+@startuml C4_Container_Deposit_MVP
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Диаграмма Контейнеров: MVP Онлайн-подача заявок на депозит
+
+Person(new_client, "Новый Клиент")
+Person(existing_client, "Существующий Клиент")
+Person_Ext(back_office_emp, "Сотрудник Бэк-офиса")
+Person_Ext(cc_operator, "Оператор Колл-центра")
+
+System_Boundary(bank_site_boundary, "Веб-Сайт Банка") {
+    Container(spa_website, "Веб-приложение Сайта (SPA)", "PHP, React.js", "Отображает ставки, принимает заявки от новых клиентов")
+}
+
+System_Boundary(ib_boundary, "Интернет-Банк") {
+    Container(spa_ib, "Веб-приложение ИБ (SPA)", "ASP.NET MVC (UI)", "Пользовательский интерфейс для клиентов")
+    Container(api_ib, "API Интернет-Банка", ".NET Framework 4.5", "Бизнес-логика, обработка запросов от SPA")
+    ContainerDb(db_ib, "База данных ИБ", "MS SQL", "Хранит данные клиентов ИБ, сессии, настройки")
+    Container(sms_module_ib, "Модуль СМС-подтверждения ИБ", ".NET Framework 4.5", "Отправляет коды подтверждения операций")
+    Container(kafka_producer_ib, "Kafka Producer (Заявки)", ".NET / Java", "Публикует заявки на депозит в Kafka")
+}
+
+System_Boundary(abs_boundary, "АБС и связанные модули") {
+    Container(abs_core_db, "Ядро АБС (СУБД)", "Oracle, PL/SQL", "Основная база данных банка, бухгалтерия, счета")
+    Container(abs_desktop, "Desktop-клиент АБС", "Delphi", "Интерфейс для сотрудников Бэк-офиса")
+    Container(rate_manage_module, "Модуль Управления Ставками (в АБС)", "PL/SQL, возможно Java API layer", "Хранит и предоставляет ставки по депозитам, интерфейс для БО")
+    Container(kafka_consumer_abs, "Kafka Consumer (Заявки АБС)", "Java / PL/SQL (через DB Link/AQ)", "Читает заявки из Kafka и загружает в АБС")
+}
+
+System_Boundary(messaging_boundary, "Система Обмена Сообщениями") {
+    ContainerQueue(kafka_queue, "Kafka", "Кластер Kafka", "Очередь сообщений для асинхронной обработки заявок")
+}
+
+System_Ext(cc_system, "Система Колл-центра", "Внешняя CRM/Колл-центр платформа")
+System_Ext(sms_gateway, "СМС-шлюз", "Внешний сервис отправки СМС")
+
+' Связи Клиентов
+Rel(new_client, spa_website, "Просматривает ставки, подает заявку", "HTTPS")
+Rel(existing_client, spa_ib, "Просматривает ставки, подает заявку", "HTTPS")
+
+' Связи Веб-сайта
+Rel(spa_website, rate_manage_module, "Запрашивает актуальные ставки", "HTTPS/API")
+Rel(spa_website, cc_system, "Передает заявку нового клиента", "HTTPS/API")
+
+' Связи Интернет-Банка
+Rel(spa_ib, api_ib, "Взаимодействует с бэкендом", "HTTPS/API")
+Rel(api_ib, db_ib, "Читает/пишет данные", "SQL")
+Rel(api_ib, rate_manage_module, "Запрашивает актуальные/персональные ставки", "HTTPS/API")
+Rel(api_ib, sms_module_ib, "Инициирует отправку СМС-кода")
+Rel(sms_module_ib, sms_gateway, "Отправляет СМС-код", "API")
+Rel(api_ib, kafka_producer_ib, "Отправляет данные заявки")
+Rel(kafka_producer_ib, kafka_queue, "Публикует сообщение о заявке", "Kafka Protocol")
+
+' Связи АБС
+Rel(back_office_emp, abs_desktop, "Работает с АБС")
+Rel(abs_desktop, abs_core_db, "Читает/пишет данные", "SQL")
+Rel(back_office_emp, rate_manage_module, "Управляет ставками")
+Rel(rate_manage_module, abs_core_db, "Читает/пишет данные о ставках", "SQL")
+
+Rel(kafka_consumer_abs, kafka_queue, "Читает сообщение о заявке", "Kafka Protocol")
+Rel(kafka_consumer_abs, abs_core_db, "Записывает данные заявки в АБС", "SQL")
+Rel(abs_core_db, sms_gateway, "Инициирует отправку СМС-уведомлений", "API (через триггеры/процедуры)")
+
+
+' Связи Колл-центра
+Rel(cc_operator, cc_system, "Обрабатывает заявку")
+Rel(cc_system, abs_core_db, "Передает данные заявки (возможно через промежуточный файл/ручной ввод)", "API/Manual")
+
+
+@enduml
