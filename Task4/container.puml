@@ -1,0 +1,49 @@
+@startuml C4_Container_Rates_To_CC
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Диаграмма Контейнеров: Передача актуальных ставок в Колл-центры
+
+Person_Ext(internal_cc_operator, "Оператор Внутреннего КЦ")
+Person_Ext(partner_cc_operator, "Оператор Партнерского КЦ")
+Person_Ext(back_office_emp, "Сотрудник Бэк-офиса")
+
+System_Boundary(abs_boundary, "АБС") {
+    Container(abs_core_db, "Ядро АБС (СУБД)", "Oracle, PL/SQL", "Основная база данных банка")
+    Container(rate_manage_module_abs, "Модуль АБС для управления ставками", "PL/SQL", "Хранит и управляет ставками, предоставляет API")
+    Container(rates_file_export_job, "Модуль для экспорта ставок в файл", "PL/SQL скрипт", "Генерирует файл ставок и выгружает на SFTP")
+    Container(abs_desktop, "Desktop-клиент АБС", "Delphi", "Интерфейс для Бэк-офиса")
+}
+
+System_Boundary(internal_cc_boundary, "Система Внутреннего КЦ") {
+    Container(internal_cc_backend, "Бэкенд Системы КЦ", "Java Spring Boot", "Обрабатывает логику, взаимодействует с АБС")
+    Container(internal_cc_frontend, "Фронтенд Системы КЦ", "React.js", "Пользовательский интерфейс для оператора")
+    ContainerDb(internal_cc_db, "База Данных Системы КЦ", "PostgreSQL", "Хранит данные обращений, настройки КЦ")
+}
+
+System_Ext(partner_cc_system, "Система Партнерского КЦ", "Внешняя система")
+Container(sftp_server_container, "SFTP Сервер", "ПО для SFTP", "Хранит файл со ставками для партнера")
+
+
+' Связи Сотрудников
+Rel(internal_cc_operator, internal_cc_frontend, "Использует интерфейс", "HTTPS")
+Rel(partner_cc_operator, partner_cc_system, "Использует интерфейс партнера")
+Rel(back_office_emp, abs_desktop, "Управляет ставками через АБС")
+Rel(abs_desktop, rate_manage_module_abs, "Взаимодействует")
+
+
+' Связи Системы Внутреннего КЦ
+Rel(internal_cc_frontend, internal_cc_backend, "Запрашивает данные", "HTTPS/API")
+Rel(internal_cc_backend, rate_manage_module_abs, "Запрашивает актуальные ставки", "HTTPS/REST API")
+Rel(internal_cc_backend, internal_cc_db, "Читает/пишет данные", "JDBC")
+
+' Связи АБС для экспорта файла
+Rel(rate_manage_module_abs, abs_core_db, "Читает/пишет данные о ставках", "SQL")
+Rel(rates_file_export_job, rate_manage_module_abs, "Получает данные ставок для экспорта")
+Rel(rates_file_export_job, sftp_server_container, "Выгружает файл ставок", "SFTP")
+
+' Связи Партнерского КЦ
+Rel(partner_cc_system, sftp_server_container, "Загружает файл ставок", "SFTP")
+
+@enduml

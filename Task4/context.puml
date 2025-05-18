@@ -1,0 +1,32 @@
+@startuml C4_Context_Rates_To_CC
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Диаграмма Контекста: Передача актуальных ставок в Колл-центры
+
+Person(client, "Клиент Банка", "Обращается за консультацией по депозитам")
+Person(internal_cc_operator, "Оператор Внутреннего КЦ", "Консультирует клиентов, используя систему КЦ")
+Person(partner_cc_operator, "Оператор Партнерского КЦ", "Консультирует клиентов, используя систему партнера")
+Person(back_office_emp, "Сотрудник Бэк-офиса", "Управляет ставками в АБС")
+
+
+System(abs, "АБС", "Автоматизированная Банковская Система")
+System(internal_cc_system, "Система Внутреннего КЦ", "Платформа для операторов внутреннего КЦ")
+System_Ext(partner_cc_system, "Система Партнерского КЦ", "Внешняя система для операторов партнера")
+System_Ext(sftp_server, "SFTP Сервер Банка", "Сервер для обмена файлами")
+
+
+Rel(client, internal_cc_operator, "Звонит/обращается")
+Rel(client, partner_cc_operator, "Звонит/обращается")
+
+Rel(internal_cc_operator, internal_cc_system, "Использует для получения ставок")
+Rel(partner_cc_operator, partner_cc_system, "Использует для получения ставок")
+
+Rel(internal_cc_system, abs, "Запрашивает актуальные ставки", "HTTPS/API")
+Rel(abs, sftp_server, "Выгружает файл с актуальными ставками", "SFTP")
+Rel(partner_cc_system, sftp_server, "Загружает файл с актуальными ставками", "SFTP")
+
+Rel(back_office_emp, abs, "Управляет ставками")
+
+@enduml
